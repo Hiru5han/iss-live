@@ -1,0 +1,22 @@
+{
+  "name": "iss-live-infra",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "destroy": "cdk destroy"
+  },
+  "devDependencies": {
+    "@aws-cdk/aws-lambda-python-alpha": "^2.130.0-alpha.0",
+    "@types/node": "^20.12.5",
+    "aws-cdk-lib": "^2.130.0",
+    "constructs": "^10.3.0",
+    "source-map-support": "^0.5.21",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.3"
+  }
+}

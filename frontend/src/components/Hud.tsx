@@ -1,0 +1,60 @@
+import { IssNowResponse } from '../api';
+
+interface HudProps {
+  data: IssNowResponse | null;
+}
+
+const formatNumber = (value?: number, fraction = 2) =>
+  typeof value === 'number' ? value.toFixed(fraction) : '—';
+
+const formatTime = (timestamp?: string) => {
+  if (!timestamp) {
+    return '—';
+  }
+
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'UTC',
+    });
+    return `${formatter.format(new Date(timestamp))} UTC`;
+  } catch (error) {
+    return timestamp;
+  }
+};
+
+const Hud = ({ data }: HudProps) => (
+  <div className="hud-container">
+    <p className="hud-title">ISS TELEMETRY</p>
+    <div className="metric-row">
+      <span>Latitude</span>
+      <span>{formatNumber(data?.lat)}°</span>
+    </div>
+    <div className="metric-row">
+      <span>Longitude</span>
+      <span>{formatNumber(data?.lon)}°</span>
+    </div>
+    <div className="metric-row">
+      <span>Altitude</span>
+      <span>{formatNumber(data?.altitude_km, 1)} km</span>
+    </div>
+    <div className="metric-row">
+      <span>Velocity</span>
+      <span>{formatNumber(data?.velocity_kmh, 0)} km/h</span>
+    </div>
+    <div className="metric-row">
+      <span>Source</span>
+      <span>{data?.source ?? '—'}</span>
+    </div>
+    <div className="timestamp">Last update: {formatTime(data?.timestamp)}</div>
+    <div className="pills">
+      <span className="pill pill-live">{data ? 'LIVE' : 'ACQ'}</span>
+      {data?.stale && <span className="pill pill-stale">STALE</span>}
+    </div>
+  </div>
+);
+
+export default Hud;

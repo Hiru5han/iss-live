@@ -1,0 +1,30 @@
+"""Pydantic models for ISS backend responses."""
+
+from datetime import datetime, timezone
+from typing import Any
+
+from pydantic import BaseModel, Field, model_validator
+
+
+class HealthResponse(BaseModel):
+    ok: bool = True
+
+
+class ISSNowResponse(BaseModel):
+    lat: float = Field(..., description="Latitude in decimal degrees")
+    lon: float = Field(..., description="Longitude in decimal degrees")
+    altitude_km: float = Field(..., description="Altitude above mean sea level in km")
+    velocity_kmh: float = Field(..., description="Velocity in km/h")
+    timestamp: str = Field(..., description="Timestamp in ISO-8601 UTC format")
+    source: str = Field(default="wheretheiss.at")
+    stale: bool = Field(default=False, description="True when cache is served after an upstream failure")
+
+    @model_validator(mode="before")
+    @classmethod
+    def ensure_timestamp_format(cls, data: Any) -> Any:
+        ts = data.get("timestamp")
+        if isinstance(ts, datetime):
+            data["timestamp"] = ts.astimezone(timezone.utc).replace(tzinfo=timezone.utc).isoformat().replace(
+                "+00:00", "Z"
+            )
+        return data

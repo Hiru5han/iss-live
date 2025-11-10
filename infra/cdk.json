@@ -1,0 +1,6 @@
+{
+  "app": "npx ts-node --esm bin/iss-live.ts",
+  "context": {
+    "@aws-cdk/core:bootstrapQualifier": "isslive"
+  }
+}
