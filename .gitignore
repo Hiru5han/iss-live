@@ -12,12 +12,12 @@ infra/node_modules/
 .env
 backend/.env
 frontend/.env
+.vscode/
 
 # Misc
 .DS_Store
 *.log
 
 # Artifacts
-+cdk.out/
-+.npm/
-+.npm-cache/
+frontend/.npm-cache/
+infra/cdk.out/
