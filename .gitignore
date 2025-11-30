@@ -16,3 +16,8 @@ frontend/.env
 # Misc
 .DS_Store
 *.log
+
+# Artifacts
++cdk.out/
++.npm/
++.npm-cache/
