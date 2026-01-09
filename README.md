@@ -91,8 +91,3 @@ npx cdk bootstrap
 npx cdk synth
 npx cdk deploy   # provisions API Gateway + Lambda (no secrets wired yet)
 ```
-
-## Next Steps
-
-- Capture a 10–20 s screen recording (GIF/MP4) of the globe view for sharing.
-- Wire the CDK stack into your preferred CI/CD workflow once you’re comfortable with the local story.
