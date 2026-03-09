@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from fastapi.testclient import TestClient
@@ -9,7 +9,7 @@ from app.main import app, get_iss_client
 
 
 def _build_payload() -> dict[str, float | int]:
-    now = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    now = datetime(2024, 1, 1, tzinfo=UTC)
     return {
         "latitude": 10.0,
         "longitude": 20.0,
