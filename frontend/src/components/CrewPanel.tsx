@@ -13,7 +13,11 @@ const CrewPanel = ({ data, onClose }: CrewPanelProps) => (
     <div className="crew-header">
       <p className="hud-title">ISS CREW</p>
       {onClose && (
-        <button className="crew-close-btn" onClick={onClose} aria-label="Close crew panel">
+        <button
+          className="crew-close-btn"
+          onClick={onClose}
+          aria-label="Close crew panel"
+        >
           ✕
         </button>
       )}
