@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Dict
+from typing import Any
 
 from .config import Settings
 from .iss_client import ISSClient, UpstreamUnavailableError
@@ -18,7 +18,7 @@ client = ISSClient(
 )
 
 
-async def _handle_request() -> Dict[str, Any]:
+async def _handle_request() -> dict[str, Any]:
     try:
         payload = await client.fetch()
         body = payload.model_dump()
@@ -34,5 +34,5 @@ async def _handle_request() -> Dict[str, Any]:
     return {"statusCode": status, "body": json.dumps(body), "headers": headers}
 
 
-def handler(event: dict[str, Any], context: Any) -> Dict[str, Any]:  # pragma: no cover - Lambda entry
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # pragma: no cover
     return asyncio.run(_handle_request())

@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -34,7 +34,7 @@ class ISSClient:
         rate_limit_seconds: int,
         timeout: float,
         source: str = "wheretheiss.at",
-        transport: Optional[httpx.BaseTransport] = None,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.upstream_url = upstream_url
         self.cache_ttl = cache_ttl
@@ -42,7 +42,7 @@ class ISSClient:
         self.timeout = timeout
         self.source = source
         self._lock = asyncio.Lock()
-        self._cache: Optional[CacheEntry] = None
+        self._cache: CacheEntry | None = None
         self._next_allowed_fetch = 0.0
         self._client = httpx.AsyncClient(timeout=self.timeout, transport=transport)
 
@@ -79,7 +79,7 @@ class ISSClient:
         return response.json()
 
     def _normalize_payload(self, payload: dict[str, Any]) -> ISSNowResponse:
-        timestamp = datetime.fromtimestamp(payload["timestamp"], tz=timezone.utc)
+        timestamp = datetime.fromtimestamp(payload["timestamp"], tz=UTC)
         return ISSNowResponse(
             lat=payload["latitude"],
             lon=payload["longitude"],
