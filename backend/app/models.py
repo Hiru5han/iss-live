@@ -10,6 +10,16 @@ class HealthResponse(BaseModel):
     ok: bool = True
 
 
+class CrewMember(BaseModel):
+    name: str = Field(..., description="Astronaut name")
+    craft: str = Field(default="ISS", description="Spacecraft name")
+
+
+class CrewResponse(BaseModel):
+    count: int = Field(..., description="Number of crew members aboard the ISS")
+    members: list[CrewMember] = Field(..., description="List of crew members")
+
+
 class ISSNowResponse(BaseModel):
     lat: float = Field(..., description="Latitude in decimal degrees")
     lon: float = Field(..., description="Longitude in decimal degrees")
