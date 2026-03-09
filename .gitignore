@@ -1,5 +1,6 @@
 # Python
 backend/.venv/
+backend/*.egg-info/
 __pycache__/
 *.pyc
 
@@ -20,4 +21,7 @@ frontend/.env
 
 # Artifacts
 frontend/.npm-cache/
+frontend/tsconfig.tsbuildinfo
+frontend/src/**/*.js
+frontend/src/**/*.d.ts
 infra/cdk.out/

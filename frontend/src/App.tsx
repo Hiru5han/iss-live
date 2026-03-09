@@ -13,6 +13,7 @@ function App() {
   const [crew, setCrew] = useState<CrewResponse | null>(null);
   const [track, setTrack] = useState<GlobePoint[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [crewOpen, setCrewOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -79,7 +80,26 @@ function App() {
     <div className="app-shell">
       <GlobeView position={currentPosition} track={track} />
       <Hud data={telemetry} />
-      <CrewPanel data={crew} />
+
+      {/* Mobile-only crew toggle button */}
+      <button
+        className="crew-toggle-btn"
+        onClick={() => setCrewOpen((o) => !o)}
+        aria-label={crewOpen ? 'Close crew panel' : 'Show ISS crew'}
+      >
+        {crewOpen ? '✕' : '🧑‍🚀'}
+      </button>
+
+      {/* Tap-outside overlay for mobile crew sheet */}
+      {crewOpen && (
+        <div className="crew-overlay" onClick={() => setCrewOpen(false)} />
+      )}
+
+      {/* Crew panel — desktop: absolute top-right; mobile: bottom sheet */}
+      <div className={`crew-wrapper${crewOpen ? ' crew-wrapper--open' : ''}`}>
+        <CrewPanel data={crew} onClose={() => setCrewOpen(false)} />
+      </div>
+
       {error && <div className="error-toast">{error}</div>}
     </div>
   );

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -30,11 +30,11 @@ class CrewClient:
         *,
         cache_ttl: int,
         timeout: float,
-        transport: Optional[httpx.BaseTransport] = None,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.crew_url = crew_url
         self.cache_ttl = cache_ttl
-        self._cache: Optional[CrewCacheEntry] = None
+        self._cache: CrewCacheEntry | None = None
         self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
 
     async def aclose(self) -> None:
