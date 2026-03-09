@@ -1,93 +1,279 @@
 # ISS Live
 
-Local-first toolkit that fetches the International Space Station state locally, renders it on a Globe.gl-powered 3D globe, and keeps everything ready for an eventual serverless hand-off.
+Real-time International Space Station tracker — a 3D globe dashboard that shows the ISS position, ground track, and current crew. Built with a FastAPI backend and a React + Globe.gl frontend, containerised with Docker Compose, and ready for serverless deployment on AWS.
+
+---
+
+## Architecture
+
+### System Overview
+
+```mermaid
+graph TB
+    subgraph Browser
+        FE["React + Globe.gl\n(Vite, TypeScript)"]
+    end
+
+    subgraph Docker / Local
+        BE["FastAPI Backend\n(Python 3.12, uvicorn)"]
+    end
+
+    subgraph External APIs
+        ISS["wheretheiss.at\n/v1/satellites/25544"]
+        CREW["open-notify.org\n/astros.json"]
+    end
+
+    FE -- "GET /iss/now  (every 5 s)" --> BE
+    FE -- "GET /iss/crew (every 5 min)" --> BE
+    BE -- "≤1 req / 5 s  (rate-limited)" --> ISS
+    BE -- "TTL 300 s cache" --> CREW
+```
+
+### Backend Request Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend (5 s poll)
+    participant B as FastAPI
+    participant C as In-Process Cache
+    participant U as wheretheiss.at
+
+    F->>B: GET /iss/now
+    B->>C: check cache (TTL 8 s)
+    alt cache hit
+        C-->>B: cached payload
+        B-->>F: 200 OK  (stale=false)
+    else cache miss / rate-limit window
+        B->>U: GET /v1/satellites/25544
+        alt upstream OK
+            U-->>B: JSON telemetry
+            B->>C: store entry
+            B-->>F: 200 OK  (stale=false)
+        else upstream error
+            alt stale entry exists
+                C-->>B: old payload
+                B-->>F: 200 OK  (stale=true)
+            else no cache at all
+                B-->>F: 503 {"error": "…"}
+            end
+        end
+    end
+```
+
+### Frontend Component Tree
+
+```mermaid
+graph TD
+    App --> GlobeView
+    App --> Hud
+    App --> CrewPanel
+    App --> ErrorToast["ErrorToast (conditional)"]
+
+    GlobeView["GlobeView\n• 3D Earth (Globe.gl / Three.js)\n• ISS marker\n• Ground track (≈15 min breadcrumbs)"]
+    Hud["Hud\n• Lat / Lon / Altitude / Velocity\n• Source & timestamp\n• LIVE / STALE pills"]
+    CrewPanel["CrewPanel\n• Crew count\n• Astronaut name list"]
+```
+
+### Serverless Architecture (AWS)
+
+```mermaid
+graph LR
+    Browser -->|HTTPS| APIGW["API Gateway\nREST API"]
+    APIGW -->|proxy| Lambda["Lambda\nPython 3.12\n(serverless_handler.py)"]
+    Lambda --> ISS2["wheretheiss.at"]
+
+    subgraph CDK Stack — IssLiveStack
+        APIGW
+        Lambda
+    end
+```
+
+---
 
 ## Project Layout
 
 ```
 iss-live/
-  backend/        FastAPI app + shared ISS client logic
-  frontend/       Vite + React globe dashboard
-  infra/          AWS CDK (TypeScript) skeleton for API Gateway + Lambda
-  docker-compose.yml
-  Makefile
+├── backend/
+│   ├── app/
+│   │   ├── main.py             # FastAPI app, routes, DI wiring
+│   │   ├── iss_client.py       # ISS telemetry client (cache + rate-limit)
+│   │   ├── crew_client.py      # Crew client (cache)
+│   │   ├── models.py           # Pydantic response models
+│   │   ├── config.py           # Settings (pydantic-settings / .env)
+│   │   ├── serverless_handler.py  # Mangum adapter for Lambda
+│   │   └── tests/
+│   ├── Dockerfile
+│   ├── pyproject.toml
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx             # Root component, polling loops
+│   │   ├── api.ts              # fetch wrappers (fetchIssNow, fetchCrew)
+│   │   └── components/
+│   │       ├── GlobeView.tsx   # Globe.gl 3D earth + ISS marker + track
+│   │       ├── Hud.tsx         # Telemetry overlay
+│   │       └── CrewPanel.tsx   # Crew list overlay
+│   ├── Dockerfile
+│   └── package.json
+├── infra/
+│   └── lib/iss-live-stack.ts   # AWS CDK — API Gateway + Lambda
+├── docker-compose.yml
+└── Makefile
 ```
+
+---
+
+## API Reference
+
+### `GET /health`
+```json
+{ "ok": true }
+```
+
+### `GET /iss/now`
+Returns normalised ISS telemetry. Response headers include `Cache-Control: max-age=8` and `Access-Control-Allow-Origin: *`.
+
+```json
+{
+  "lat": 51.23,
+  "lon": -0.45,
+  "altitude_km": 421.7,
+  "velocity_kmh": 27588,
+  "timestamp": "2024-01-15T12:34:56Z",
+  "source": "wheretheiss.at",
+  "stale": false
+}
+```
+
+`stale: true` is returned when the upstream is unreachable but a previous value is cached. A `503` is returned only when there is no cached value at all.
+
+### `GET /iss/crew`
+Returns ISS crew from open-notify.org, filtered to ISS-only crew members. Cache TTL 300 s.
+
+```json
+{
+  "count": 7,
+  "members": [
+    { "name": "Oleg Kononenko", "craft": "ISS" },
+    { "name": "Nikolai Chub",   "craft": "ISS" }
+  ]
+}
+```
+
+---
 
 ## Prerequisites
 
-- Docker Desktop 4.0+
-- Python 3.12 (if you want to run the backend outside Docker)
-- Node.js 18+ and npm 9+ (if you want to run the frontend or infra tooling directly)
+| Tool | Version |
+|------|---------|
+| Docker Desktop | 4.0+ |
+| Python | 3.12+ (optional, for local venv) |
+| Node.js | 18+ (optional, for local frontend/infra) |
 
-## Quick Start (Local, Docker)
+---
+
+## Quick Start (Docker Compose)
 
 ```bash
-cp .env.example .env
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 make up
-# Frontend → http://localhost:5173
-# Backend  → http://localhost:8000
 ```
 
-The backend exposes:
+| Service  | URL |
+|----------|-----|
+| Frontend | http://localhost:5173 |
+| Backend  | http://localhost:8000 |
 
-- `GET /health` → `{ "ok": true }`
-- `GET /iss/now` → normalized ISS telemetry with caching + graceful fallback. Response headers include `Cache-Control: max-age=8` and `Access-Control-Allow-Origin: *`.
+---
 
 ## Make Targets
 
 | Command | Description |
-| --- | --- |
-| `make up` | Build + start both services via Docker Compose (reload enabled). |
-| `make down` | Stop and remove the stack. |
-| `make logs` | Tail combined container logs. |
-| `make test` | Run backend pytest suite + frontend ESLint checks inside containers. |
-| `make fmt` | Run `ruff` + `black` for backend and `prettier` for frontend. |
+|---------|-------------|
+| `make up` | Build and start both services with hot-reload |
+| `make down` | Stop and remove the stack |
+| `make logs` | Tail combined container logs |
+| `make test` | Run `pytest` (backend) + ESLint (frontend) inside containers |
+| `make fmt` | Run `ruff` + `black` (backend) and `prettier` (frontend) |
 
-## Backend Notes
+---
 
-- Stack: FastAPI + httpx with a tiny in-process cache (TTL 8s) and rate limit (≤1 upstream hit / 5s).
-- Healthy path: warm-cache responses return within ~300 ms locally.
-- Failure path: if `wheretheiss.at` is down, the API keeps returning the newest cached payload with `"stale": true`; only if there’s no cache do you see a `503 {"error": ...}`.
-- Tooling: `pytest`, `ruff`, `black`. Run locally with `cd backend && .venv/bin/python -m pytest -q` once you create a virtualenv.
+## Backend
 
-## Frontend Notes
+- **Stack:** FastAPI · httpx · pydantic-settings · uvicorn
+- **Caching:** In-process, per-client, monotonic-clock TTL
+  - ISS position: 8 s TTL, ≤1 upstream hit per 5 s (rate limit enforced with `asyncio.Lock`)
+  - Crew data: 300 s TTL
+- **Resilience:** Stale cache served on upstream failure; 503 only when no cache exists
+- **Tooling:** `pytest`, `ruff`, `black`
 
-- Stack: Vite + React + Globe.gl (Three.js).
-- Poll cadence: every 5 s with camera easing + ground track (≈15 min of breadcrumbs).
-- HUD shows lat/lon/altitude/velocity/source and LIVE/STALE pills; a toast appears if the local API becomes unreachable.
-- Quality gates: `npm run lint`, `npm run format`, `npm run typecheck`, `npm run build`.
-
-## Troubleshooting
-
-- **CORS errors:** ensure you’re calling `http://localhost:8000/iss/now` (or the Compose hostname `http://backend:8000/iss/now`). The backend already emits permissive CORS headers.
-- **Port collisions:** update `BACKEND_PORT` / `FRONTEND_PORT` inside `.env` before running `make up`.
-- **Upstream ISS API down:** backend serves stale cache with `"stale": true`; frontend lights up the amber pill and keeps animating with last known coordinates.
-
-## Tests & Linters
+Run tests locally (after creating a virtualenv):
 
 ```bash
-make test          # pytest + eslint
-make fmt           # ruff/black + prettier
-cd frontend && npm run typecheck
-cd backend && .venv/bin/python -m pytest -q  # if you set up the venv locally
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest -q
 ```
 
-## Preparing for Serverless
+---
 
-A minimal AWS CDK skeleton lives in `infra/`:
+## Frontend
 
-- `GET /iss/now` REST API (API Gateway) backed by a Python 3.12 Lambda that reuses `backend/app/serverless_handler.py`.
-- Env: `CACHE_TTL=8`, open CORS for `GET/OPTIONS`.
-- Output: direct invoke URL (`IssApiUrl`).
+- **Stack:** Vite · React · TypeScript · Globe.gl (Three.js)
+- **Polling:** ISS position every **5 s**, crew every **5 min**
+- **Ground track:** last ~15 minutes of positions (180 breadcrumbs at 5 s cadence)
+- **HUD:** lat / lon / altitude / velocity / source / timestamp, LIVE / STALE status pills
+- **Error state:** toast notification if the local API becomes unreachable; last known coordinates kept on the globe
 
-When you’re ready to try it:
+Quality gates:
+
+```bash
+cd frontend
+npm run lint        # ESLint
+npm run format      # Prettier
+npm run typecheck   # tsc --noEmit
+npm run build       # production build
+```
+
+---
+
+## CI / GitHub Actions
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| `claude.yml` | PR opened / updated | Claude PR Assistant reviews and responds to PR comments |
+| `claude-code-review.yml` | PR opened / updated | Automated Claude code review on every pull request |
+
+---
+
+## Serverless Deployment (AWS CDK)
+
+The `infra/` directory contains a CDK stack that mirrors the local `/iss/now` endpoint:
+
+- **API Gateway** REST API with open CORS (`GET`, `OPTIONS`)
+- **Lambda** (Python 3.12, 512 MB, 10 s timeout) running `backend/app/serverless_handler.py` via Mangum
+- Stack output: `IssApiUrl` — the invoke URL for `GET /iss/now`
 
 ```bash
 cd infra
-npm install   # already done once to generate package-lock.json
-npx cdk bootstrap
-npx cdk synth
-npx cdk deploy   # provisions API Gateway + Lambda (no secrets wired yet)
+npm install
+npx cdk bootstrap   # one-time per AWS account/region
+npx cdk synth       # preview CloudFormation template
+npx cdk deploy      # provision API Gateway + Lambda
 ```
+
+Point the frontend at the deployed URL by setting `VITE_API_URL` in `frontend/.env`.
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| CORS errors in browser | Ensure you're calling `http://localhost:8000` (not a different port). The backend already emits `Access-Control-Allow-Origin: *`. |
+| Port collisions | Set `BACKEND_PORT` / `FRONTEND_PORT` in your root `.env` before `make up`. |
+| Amber **STALE** pill in HUD | The upstream ISS API is unreachable; the backend is serving its most recent cached position. Usually self-resolving. |
+| `503` from backend | No cached data and upstream is down. Check connectivity to `api.wheretheiss.at`. |
