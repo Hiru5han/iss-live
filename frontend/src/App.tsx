@@ -2,11 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import GlobeView, { GlobePoint } from './components/GlobeView';
 import CrewPanel from './components/CrewPanel';
 import Hud from './components/Hud';
-import { fetchIssNow, fetchCrew, IssNowResponse, CrewResponse } from './api';
+import {
+  fetchIssNow,
+  fetchIssHistory,
+  fetchCrew,
+  IssNowResponse,
+  CrewResponse,
+} from './api';
 
 const POLL_INTERVAL_MS = 5000;
 const CREW_POLL_INTERVAL_MS = 300_000; // 5 minutes
-const MAX_TRACK_POINTS = 180; // ~15 minutes of history at 5s cadence
+const MAX_TRACK_POINTS = 1500; // ~24 hours at 60s cadence + live buffer
 
 function App() {
   const [telemetry, setTelemetry] = useState<IssNowResponse | null>(null);
@@ -66,6 +72,32 @@ function App() {
     return () => {
       mounted = false;
       window.clearInterval(intervalId);
+    };
+  }, []);
+
+  // Load 24-hour history on mount
+  useEffect(() => {
+    let mounted = true;
+    const loadHistory = async () => {
+      try {
+        const history = await fetchIssHistory();
+        if (!mounted) return;
+        const historyPoints = history.positions.map((p) => ({
+          lat: p.lat,
+          lon: p.lon,
+        }));
+        setTrack((prev) => {
+          // Prepend history before any live points already collected
+          const combined = [...historyPoints, ...prev];
+          return combined.slice(-MAX_TRACK_POINTS);
+        });
+      } catch {
+        // History is optional — live tracking still works without it
+      }
+    };
+    loadHistory();
+    return () => {
+      mounted = false;
     };
   }, []);
 

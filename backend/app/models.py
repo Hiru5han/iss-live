@@ -20,6 +20,29 @@ class CrewResponse(BaseModel):
     members: list[CrewMember] = Field(..., description="List of crew members")
 
 
+class ISSPositionRecord(BaseModel):
+    lat: float = Field(..., description="Latitude in decimal degrees")
+    lon: float = Field(..., description="Longitude in decimal degrees")
+    timestamp: str = Field(..., description="Timestamp in ISO-8601 UTC format")
+
+    @model_validator(mode="before")
+    @classmethod
+    def ensure_timestamp_str(cls, data: Any) -> Any:
+        ts = data.get("timestamp")
+        if isinstance(ts, datetime):
+            data["timestamp"] = (
+                ts.astimezone(UTC).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+            )
+        return data
+
+
+class ISSHistoryResponse(BaseModel):
+    positions: list[ISSPositionRecord] = Field(
+        ..., description="Historical positions for the past 24 hours"
+    )
+    count: int = Field(..., description="Number of position records")
+
+
 class ISSNowResponse(BaseModel):
     lat: float = Field(..., description="Latitude in decimal degrees")
     lon: float = Field(..., description="Longitude in decimal degrees")

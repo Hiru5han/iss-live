@@ -9,8 +9,9 @@ from fastapi.responses import JSONResponse
 
 from .config import Settings
 from .crew_client import CrewClient, CrewUnavailableError
+from .history_client import HistoryClient, HistoryUnavailableError
 from .iss_client import ISSClient, UpstreamUnavailableError
-from .models import CrewResponse, HealthResponse, ISSNowResponse
+from .models import CrewResponse, HealthResponse, ISSHistoryResponse, ISSNowResponse
 
 app = FastAPI(title="ISS Live API", version="0.1.0")
 
@@ -32,6 +33,18 @@ def get_crew_client(settings: Annotated[Settings, Depends(get_settings)]) -> Cre
             timeout=settings.request_timeout,
         )
         app.state.crew_client = client  # type: ignore[attr-defined]
+    return client
+
+
+def get_history_client(settings: Annotated[Settings, Depends(get_settings)]) -> HistoryClient:
+    client: HistoryClient | None = getattr(app.state, "history_client", None)  # type: ignore[attr-defined]
+    if client is None:
+        client = HistoryClient(
+            upstream_base=settings.upstream_url,
+            cache_ttl=settings.history_cache_ttl,
+            timeout=settings.request_timeout,
+        )
+        app.state.history_client = client  # type: ignore[attr-defined]
     return client
 
 
@@ -63,6 +76,11 @@ async def startup_event() -> None:
         cache_ttl=settings.crew_cache_ttl,
         timeout=settings.request_timeout,
     )
+    app.state.history_client = HistoryClient(
+        upstream_base=settings.upstream_url,
+        cache_ttl=settings.history_cache_ttl,
+        timeout=settings.request_timeout,
+    )
 
 
 @app.on_event("shutdown")
@@ -73,6 +91,9 @@ async def shutdown_event() -> None:
     crew_client: CrewClient | None = getattr(app.state, "crew_client", None)
     if crew_client:
         await crew_client.aclose()
+    history_client: HistoryClient | None = getattr(app.state, "history_client", None)
+    if history_client:
+        await history_client.aclose()
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -118,5 +139,27 @@ async def iss_crew(
         )
 
     response.headers["Cache-Control"] = f"max-age={crew_client.cache_ttl}"
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return payload
+
+
+@app.get("/iss/history", response_model=ISSHistoryResponse)
+async def iss_history(
+    response: Response,
+    history_client: Annotated[HistoryClient, Depends(get_history_client)],
+) -> ISSHistoryResponse | JSONResponse:
+    try:
+        payload = await history_client.fetch()
+    except HistoryUnavailableError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={"error": str(exc)},
+            headers={
+                "Cache-Control": f"max-age={history_client.cache_ttl}",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+    response.headers["Cache-Control"] = f"max-age={history_client.cache_ttl}"
     response.headers["Access-Control-Allow-Origin"] = "*"
     return payload
