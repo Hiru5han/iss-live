@@ -11,7 +11,9 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
+const GITHUB_REPO = 'Hiru5han/iss-live';
 const DOMAIN_NAME = 'iss-tracker.hirushan.dev';
 const HOSTED_ZONE_ID = 'Z035374199CJOMN0YV2N';
 const CERTIFICATE_ARN =
@@ -106,6 +108,28 @@ export class IssLiveStack extends Stack {
       target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
     });
 
+    // ── GitHub Actions OIDC ───────────────────────────────────────────
+
+    const ghProvider = new iam.OpenIdConnectProvider(this, 'GitHubOidc', {
+      url: 'https://token.actions.githubusercontent.com',
+      clientIds: ['sts.amazonaws.com'],
+    });
+
+    const deployRole = new iam.Role(this, 'GitHubActionsDeployRole', {
+      roleName: 'iss-live-github-deploy',
+      assumedBy: new iam.WebIdentityPrincipal(ghProvider.openIdConnectProviderArn, {
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+        },
+        StringLike: {
+          'token.actions.githubusercontent.com:sub': `repo:${GITHUB_REPO}:ref:refs/heads/main`,
+        },
+      }),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'),
+      ],
+    });
+
     // ── Outputs ─────────────────────────────────────────────────────
 
     new CfnOutput(this, 'IssApiUrl', {
@@ -121,6 +145,11 @@ export class IssLiveStack extends Stack {
     new CfnOutput(this, 'DistributionId', {
       value: distribution.distributionId,
       description: 'CloudFront distribution ID'
+    });
+
+    new CfnOutput(this, 'DeployRoleArn', {
+      value: deployRole.roleArn,
+      description: 'GitHub Actions deploy role ARN'
     });
   }
 }
