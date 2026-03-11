@@ -50,7 +50,7 @@ class CrewClient:
             response = await self._client.get(self.crew_url)
             response.raise_for_status()
             data: dict[str, Any] = response.json()
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, ValueError) as exc:
             if cached:
                 return cached.payload
             raise CrewUnavailableError("Crew data unavailable") from exc
