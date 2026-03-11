@@ -18,7 +18,10 @@ export type CrewResponse = {
   members: CrewMember[];
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+const API_BASE =
+  import.meta.env.VITE_API_BASE ??
+  import.meta.env.VITE_API_URL?.replace(/\/iss\/now$/, '') ??
+  'http://localhost:8000';
 const API_URL = import.meta.env.VITE_API_URL ?? `${API_BASE}/iss/now`;
 const CREW_URL = `${API_BASE}/iss/crew`;
 

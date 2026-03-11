@@ -61,7 +61,7 @@ class ISSClient:
 
             try:
                 payload = await self._fetch_upstream()
-            except httpx.HTTPError as exc:
+            except (httpx.HTTPError, ValueError) as exc:
                 if cached:
                     cached_payload = cached.payload.model_copy(deep=True)
                     cached_payload.stale = True
