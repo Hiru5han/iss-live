@@ -210,6 +210,17 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Coordinates: desktop rows / mobile info bubble ─────── */
+
+/* On desktop the plain metric rows are visible; hide the mobile widget */
+.coords-desktop {
+  display: block;
+}
+
+.coords-mobile {
+  display: none;
+}
+
 /* ── Mobile crew toggle button (hidden on desktop) ──────── */
 
 .crew-toggle-btn {
@@ -285,6 +296,83 @@ body {
   .timestamp {
     font-size: 0.7rem;
     margin-top: 0.4rem;
+  }
+
+  /* ── Coordinates: hide desktop rows, show info bubble ───── */
+
+  .coords-desktop {
+    display: none;
+  }
+
+  .coords-mobile {
+    display: block;
+    position: relative;
+    margin-bottom: 0.15rem;
+  }
+
+  .coords-info-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.1rem 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    color: inherit;
+  }
+
+  .coords-info-icon {
+    font-size: 0.75rem;
+    color: #38bdf8;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .coords-info-label {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    flex: 1;
+    text-align: left;
+  }
+
+  .coords-info-summary {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #f8fafc;
+    white-space: nowrap;
+  }
+
+  .coords-bubble {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    background: rgba(2, 6, 23, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    min-width: 12rem;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.7);
+    z-index: 5;
+  }
+
+  .coords-bubble .metric-row {
+    font-size: 0.75rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .coords-bubble .metric-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .coords-bubble .metric-row span:first-child {
+    font-size: 0.65rem;
   }
 
   /* ── Crew toggle button ──────────────────────────────────── */
