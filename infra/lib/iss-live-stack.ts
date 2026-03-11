@@ -122,7 +122,10 @@ export class IssLiveStack extends Stack {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
         },
         StringLike: {
-          'token.actions.githubusercontent.com:sub': `repo:${GITHUB_REPO}:ref:refs/heads/main`,
+          'token.actions.githubusercontent.com:sub': [
+            `repo:${GITHUB_REPO}:ref:refs/heads/main`,
+            `repo:${GITHUB_REPO}:environment:production`,
+          ],
         },
       }),
       managedPolicies: [
