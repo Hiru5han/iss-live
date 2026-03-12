@@ -42,8 +42,20 @@ jobs:
           role-to-assume: arn:aws:iam::549363909845:role/iss-live-github-deploy
           aws-region: us-east-1
 
+      - name: Get API base URL from CloudFormation
+        id: api-url
+        run: |
+          API_NOW_URL=$(aws cloudformation describe-stacks \
+            --stack-name IssLiveStack \
+            --query "Stacks[0].Outputs[?OutputKey=='IssApiUrl'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+          API_BASE="${API_NOW_URL%/iss/now}"
+          echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
+
       - name: Build frontend
         working-directory: frontend
+        env:
+          VITE_API_BASE: ${{ steps.api-url.outputs.api_base }}
         run: |
           npm ci
           npm run build

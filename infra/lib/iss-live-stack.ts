@@ -38,6 +38,19 @@ export class IssLiveStack extends Stack {
       }
     });
 
+    const issCrewFunction = new PythonFunction(this, 'IssCrewFunction', {
+      entry: path.join(__dirname, '..', '..', 'backend'),
+      index: 'app/serverless_handler.py',
+      handler: 'crew_handler',
+      runtime: Runtime.PYTHON_3_12,
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+      environment: {
+        CREW_URL: 'http://api.open-notify.org/astros.json',
+        CREW_CACHE_TTL: '300',
+      }
+    });
+
     const api = new RestApi(this, 'IssLiveApi', {
       restApiName: 'IssLiveApi',
       description: 'Serverless mirror of the local ISS /iss/now endpoint',
@@ -49,8 +62,10 @@ export class IssLiveStack extends Stack {
 
     const iss = api.root.addResource('iss');
     const now = iss.addResource('now');
+    const crew = iss.addResource('crew');
 
     now.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
+    crew.addMethod('GET', new LambdaIntegration(issCrewFunction, { proxy: true }));
 
     // ── Frontend (S3 + CloudFront) ──────────────────────────────────
 
