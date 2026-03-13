@@ -9,10 +9,15 @@ const TRAIL_OPTIONS = [
 interface TrailSelectorProps {
   value: number;
   onChange: (hours: number) => void;
+  loading?: boolean;
 }
 
-const TrailSelector = ({ value, onChange }: TrailSelectorProps) => (
-  <div className="trail-selector">
+const TrailSelector = ({
+  value,
+  onChange,
+  loading = false,
+}: TrailSelectorProps) => (
+  <div className={`trail-selector${loading ? ' trail-selector--loading' : ''}`}>
     <span className="trail-label">TRAIL</span>
     <div className="trail-buttons">
       {TRAIL_OPTIONS.map(({ label, hours }) => (
@@ -21,6 +26,7 @@ const TrailSelector = ({ value, onChange }: TrailSelectorProps) => (
           className={`trail-btn${value === hours ? ' trail-btn--active' : ''}`}
           onClick={() => onChange(hours)}
           aria-pressed={value === hours}
+          disabled={loading}
         >
           {label}
         </button>
