@@ -68,6 +68,12 @@ export class IssLiveStack extends Stack {
       this, 'SiteCertificate', CERTIFICATE_ARN
     );
 
+    // API Gateway origin for proxying /iss/* through CloudFront
+    const apiOrigin = new origins.HttpOrigin(
+      `${api.restApiId}.execute-api.${this.region}.amazonaws.com`,
+      { originPath: `/${api.deploymentStage.stageName}` }
+    );
+
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
       comment: 'iss-tracker frontend',
       defaultBehavior: {
@@ -79,6 +85,15 @@ export class IssLiveStack extends Stack {
           minTtl: Duration.seconds(0),
           queryStringBehavior: cloudfront.CacheQueryStringBehavior.all(),
         }),
+      },
+      additionalBehaviors: {
+        '/iss/*': {
+          origin: apiOrigin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        },
       },
       defaultRootObject: 'index.html',
       errorResponses: [
