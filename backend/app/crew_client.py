@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -34,6 +35,7 @@ class CrewClient:
     ) -> None:
         self.crew_url = crew_url
         self.cache_ttl = cache_ttl
+        self._lock = asyncio.Lock()
         self._cache: CrewCacheEntry | None = None
         self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
 
@@ -41,25 +43,26 @@ class CrewClient:
         await self._client.aclose()
 
     async def fetch(self) -> CrewResponse:
-        now = time.monotonic()
-        cached = self._cache
-        if cached and (now - cached.stored_at) < self.cache_ttl:
-            return cached.payload
-
-        try:
-            response = await self._client.get(self.crew_url)
-            response.raise_for_status()
-            data: dict[str, Any] = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            if cached:
+        async with self._lock:
+            now = time.monotonic()
+            cached = self._cache
+            if cached and (now - cached.stored_at) < self.cache_ttl:
                 return cached.payload
-            raise CrewUnavailableError("Crew data unavailable") from exc
 
-        members = [
-            CrewMember(name=p["name"], craft=p["craft"])
-            for p in data.get("people", [])
-            if p.get("craft") == "ISS"
-        ]
-        result = CrewResponse(count=len(members), members=members)
-        self._cache = CrewCacheEntry(payload=result, stored_at=now)
-        return result
+            try:
+                response = await self._client.get(self.crew_url)
+                response.raise_for_status()
+                data: dict[str, Any] = response.json()
+            except (httpx.HTTPError, ValueError) as exc:
+                if cached:
+                    return cached.payload
+                raise CrewUnavailableError("Crew data unavailable") from exc
+
+            members = [
+                CrewMember(name=p["name"], craft=p["craft"])
+                for p in data.get("people", [])
+                if p.get("craft") == "ISS"
+            ]
+            result = CrewResponse(count=len(members), members=members)
+            self._cache = CrewCacheEntry(payload=result, stored_at=now)
+            return result

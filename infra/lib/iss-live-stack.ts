@@ -34,13 +34,15 @@ export class IssLiveStack extends Stack {
       memorySize: 512,
       environment: {
         CACHE_TTL: '8',
-        UPSTREAM_URL: 'https://api.wheretheiss.at/v1/satellites/25544'
+        UPSTREAM_URL: 'https://api.wheretheiss.at/v1/satellites/25544',
+        CREW_URL: 'http://api.open-notify.org/astros.json',
+        CREW_CACHE_TTL: '300',
       }
     });
 
     const api = new RestApi(this, 'IssLiveApi', {
       restApiName: 'IssLiveApi',
-      description: 'Serverless mirror of the local ISS /iss/now endpoint',
+      description: 'Serverless API for ISS position and crew data',
       defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: ['GET', 'OPTIONS']
@@ -49,8 +51,10 @@ export class IssLiveStack extends Stack {
 
     const iss = api.root.addResource('iss');
     const now = iss.addResource('now');
+    const crew = iss.addResource('crew');
 
     now.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
+    crew.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
 
     // ── Frontend (S3 + CloudFront) ──────────────────────────────────
 
@@ -134,7 +138,12 @@ export class IssLiveStack extends Stack {
 
     new CfnOutput(this, 'IssApiUrl', {
       value: `${api.url}iss/now`,
-      description: 'Invoke URL for the ISS state endpoint'
+      description: 'Invoke URL for the ISS position endpoint'
+    });
+
+    new CfnOutput(this, 'IssCrewUrl', {
+      value: `${api.url}iss/crew`,
+      description: 'Invoke URL for the ISS crew endpoint'
     });
 
     new CfnOutput(this, 'SiteUrl', {
