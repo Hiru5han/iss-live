@@ -10,6 +10,17 @@ class HealthResponse(BaseModel):
     ok: bool = True
 
 
+class ISSTrackPoint(BaseModel):
+    lat: float = Field(..., description="Latitude in decimal degrees")
+    lon: float = Field(..., description="Longitude in decimal degrees")
+    timestamp: str = Field(..., description="ISO-8601 UTC timestamp")
+
+
+class ISSTrackResponse(BaseModel):
+    hours: float = Field(..., description="Requested history window in hours")
+    points: list[ISSTrackPoint] = Field(..., description="Track points sampled every minute")
+
+
 class CrewMember(BaseModel):
     name: str = Field(..., description="Astronaut name")
     craft: str = Field(default="ISS", description="Spacecraft name")

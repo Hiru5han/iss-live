@@ -222,6 +222,70 @@ body {
   display: none;
 }
 
+/* ── Trail selector ─────────────────────────────────────── */
+
+.trail-selector {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.6);
+  z-index: 5;
+  white-space: nowrap;
+}
+
+.trail-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: #94a3b8;
+  font-weight: 600;
+  user-select: none;
+}
+
+.trail-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.trail-btn {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  font-family: inherit;
+}
+
+.trail-btn:hover {
+  color: #f8fafc;
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.trail-btn--active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
 /* ── Error toast ────────────────────────────────────────── */
 
 .error-toast {
@@ -386,6 +450,23 @@ body {
   .crew-member {
     padding: 0.6rem 0;
     font-size: 0.95rem;
+  }
+
+  /* ── Trail selector: smaller on mobile ──────────────────── */
+
+  .trail-selector {
+    bottom: 1.25rem;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .trail-label {
+    font-size: 0.6rem;
+  }
+
+  .trail-btn {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
   }
 
   /* ── Error toast: full-width on mobile ───────────────────── */
