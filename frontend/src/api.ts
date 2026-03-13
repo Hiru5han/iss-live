@@ -8,6 +8,17 @@ export type IssNowResponse = {
   stale?: boolean;
 };
 
+export type IssTrackPoint = {
+  lat: number;
+  lon: number;
+  timestamp: string;
+};
+
+export type IssTrackResponse = {
+  hours: number;
+  points: IssTrackPoint[];
+};
+
 export type CrewMember = {
   name: string;
   craft: string;
@@ -32,6 +43,20 @@ export async function fetchIssNow(): Promise<IssNowResponse> {
 
   if (!response.ok) {
     throw new Error(`Upstream error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchIssHistory(
+  hours: number,
+): Promise<IssTrackResponse> {
+  const response = await fetch(`${API_BASE}/iss/history?hours=${hours}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`History API error: ${response.status}`);
   }
 
   return response.json();
