@@ -20,6 +20,7 @@ function App() {
   const [crew, setCrew] = useState<CrewResponse | null>(null);
   const [track, setTrack] = useState<GlobePoint[]>([]);
   const [trailHours, setTrailHours] = useState(1);
+  const [trailLoading, setTrailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [crewOpen, setCrewOpen] = useState(false);
 
@@ -54,7 +55,8 @@ function App() {
   // Historical trail — re-fetched on mount, on trailHours change, and every minute
   useEffect(() => {
     let mounted = true;
-    const loadTrail = async () => {
+    const loadTrail = async (showSpinner: boolean) => {
+      if (showSpinner && mounted) setTrailLoading(true);
       try {
         const { points } = await fetchIssHistory(trailHours);
         if (mounted) {
@@ -62,11 +64,16 @@ function App() {
         }
       } catch {
         // silently keep the last rendered trail
+      } finally {
+        if (mounted) setTrailLoading(false);
       }
     };
 
-    loadTrail();
-    const intervalId = window.setInterval(loadTrail, TRAIL_REFRESH_MS);
+    loadTrail(true);
+    const intervalId = window.setInterval(
+      () => loadTrail(false),
+      TRAIL_REFRESH_MS,
+    );
 
     return () => {
       mounted = false;
@@ -108,7 +115,11 @@ function App() {
       <GlobeView position={currentPosition} track={track} />
       <Hud data={telemetry} />
 
-      <TrailSelector value={trailHours} onChange={setTrailHours} />
+      <TrailSelector
+        value={trailHours}
+        onChange={setTrailHours}
+        loading={trailLoading}
+      />
 
       {/* Mobile-only crew toggle button */}
       <button

@@ -286,6 +286,14 @@ body {
   color: #38bdf8;
 }
 
+.trail-selector--loading {
+  opacity: 0.6;
+}
+
+.trail-selector--loading .trail-btn {
+  cursor: wait;
+}
+
 /* ── Error toast ────────────────────────────────────────── */
 
 .error-toast {
