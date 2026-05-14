@@ -1,83 +1,49 @@
-import asyncio
-from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
-import httpx
 from fastapi.testclient import TestClient
 
-from app.iss_client import ISSClient
-from app.main import app, get_iss_client
+from app.iss_track_client import ISSTrackClient, TLEUnavailableError
+from app.main import app, get_track_client
 
 
-def _build_payload() -> dict[str, float | int]:
-    now = datetime(2024, 1, 1, tzinfo=UTC)
-    return {
-        "latitude": 10.0,
-        "longitude": 20.0,
-        "altitude": 420.0,
-        "velocity": 27600.0,
-        "timestamp": int(now.timestamp()),
-    }
+def _mock_track_client(
+    lat: float = 10.0,
+    lon: float = 20.0,
+    alt: float = 420.0,
+    velocity: float = 27600.0,
+) -> AsyncMock:
+    client = AsyncMock(spec=ISSTrackClient)
+    client.get_position_now.return_value = (lat, lon, alt, velocity)
+    return client
 
 
-def test_iss_now_returns_normalised_payload() -> None:
-    payload = _build_payload()
-    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
-    iss_client = ISSClient(
-        upstream_url="https://example.com",
-        cache_ttl=8,
-        rate_limit_seconds=0,
-        timeout=0.1,
-        transport=transport,
-    )
-
-    app.dependency_overrides[get_iss_client] = lambda: iss_client
+def test_iss_now_returns_tlesourced_payload() -> None:
+    app.dependency_overrides[get_track_client] = lambda: _mock_track_client()
 
     with TestClient(app) as client:
         response = client.get("/iss/now")
 
     app.dependency_overrides.clear()
-    asyncio.run(iss_client.aclose())
 
     assert response.status_code == 200
     data = response.json()
-    assert data["lat"] == payload["latitude"]
-    assert data["lon"] == payload["longitude"]
-    assert data["altitude_km"] == payload["altitude"]
-    assert data["velocity_kmh"] == payload["velocity"]
-    assert data["source"] == "wheretheiss.at"
+    assert data["lat"] == 10.0
+    assert data["lon"] == 20.0
+    assert data["altitude_km"] == 420.0
+    assert data["velocity_kmh"] == 27600.0
+    assert data["source"] == "tle/sgp4"
     assert data["stale"] is False
+    assert "timestamp" in data
 
 
-def test_stale_cache_served_on_upstream_failure() -> None:
-    payload = _build_payload()
-    attempts = {"count": 0}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        attempts["count"] += 1
-        if attempts["count"] == 1:
-            return httpx.Response(200, json=payload)
-        raise httpx.ConnectTimeout("boom", request=request)
-
-    transport = httpx.MockTransport(handler)
-    iss_client = ISSClient(
-        upstream_url="https://example.com",
-        cache_ttl=0,
-        rate_limit_seconds=0,
-        timeout=0.1,
-        transport=transport,
-    )
-
-    app.dependency_overrides[get_iss_client] = lambda: iss_client
+def test_iss_now_returns_503_when_tle_unavailable() -> None:
+    mock_client = AsyncMock(spec=ISSTrackClient)
+    mock_client.get_position_now.side_effect = TLEUnavailableError("TLE fetch failed")
+    app.dependency_overrides[get_track_client] = lambda: mock_client
 
     with TestClient(app) as client:
-        first = client.get("/iss/now")
-        second = client.get("/iss/now")
+        response = client.get("/iss/now")
 
     app.dependency_overrides.clear()
-    asyncio.run(iss_client.aclose())
 
-    assert first.status_code == 200
-    assert first.json()["stale"] is False
-
-    assert second.status_code == 200
-    assert second.json()["stale"] is True
+    assert response.status_code == 503

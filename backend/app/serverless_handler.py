@@ -4,24 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 from .config import Settings
 from .crew_client import CrewClient, CrewUnavailableError
-from .iss_client import ISSClient, UpstreamUnavailableError
 from .iss_track_client import ISSTrackClient, TLEUnavailableError
 
 settings = Settings()
 track_client = ISSTrackClient(
     tle_url=settings.tle_url,
     timeout=settings.request_timeout,
-)
-iss_client = ISSClient(
-    upstream_url=settings.upstream_url,
-    cache_ttl=settings.cache_ttl,
-    rate_limit_seconds=settings.rate_limit_seconds,
-    timeout=settings.request_timeout,
-    track_client=track_client,
 )
 crew_client = CrewClient(
     crew_url=settings.crew_url,
@@ -32,15 +25,24 @@ crew_client = CrewClient(
 
 async def _handle_iss_now() -> dict[str, Any]:
     try:
-        payload = await iss_client.fetch()
-        body = payload.model_dump()
+        lat, lon, alt, velocity = await track_client.get_position_now()
+        ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        body: dict[str, Any] = {
+            "lat": lat,
+            "lon": lon,
+            "altitude_km": alt,
+            "velocity_kmh": velocity,
+            "timestamp": ts,
+            "source": "tle/sgp4",
+            "stale": False,
+        }
         status = 200
-    except UpstreamUnavailableError as exc:
+    except TLEUnavailableError as exc:
         body = {"error": str(exc)}
         status = 503
 
     headers = {
-        "Cache-Control": f"max-age={settings.cache_ttl}",
+        "Cache-Control": "max-age=5",
         "Access-Control-Allow-Origin": "*",
     }
     return {"statusCode": status, "body": json.dumps(body), "headers": headers}
