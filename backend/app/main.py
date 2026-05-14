@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Response
@@ -9,7 +10,6 @@ from fastapi.responses import JSONResponse
 
 from .config import Settings
 from .crew_client import CrewClient, CrewUnavailableError
-from .iss_client import ISSClient, UpstreamUnavailableError
 from .iss_track_client import ISSTrackClient, TLEUnavailableError
 from .models import CrewResponse, HealthResponse, ISSNowResponse, ISSTrackResponse
 
@@ -47,45 +47,23 @@ def get_track_client(settings: Annotated[Settings, Depends(get_settings)]) -> IS
     return client
 
 
-def get_iss_client(settings: Annotated[Settings, Depends(get_settings)]) -> ISSClient:
-    client: ISSClient | None = getattr(app.state, "iss_client", None)  # type: ignore[attr-defined]
-    if client is None:
-        client = ISSClient(
-            upstream_url=settings.upstream_url,
-            cache_ttl=settings.cache_ttl,
-            rate_limit_seconds=settings.rate_limit_seconds,
-            timeout=settings.request_timeout,
-        )
-        app.state.iss_client = client  # type: ignore[attr-defined]
-    return client
-
-
 @app.on_event("startup")
 async def startup_event() -> None:
     settings = Settings()
-    app.state.settings = settings
-    app.state.iss_client = ISSClient(
-        upstream_url=settings.upstream_url,
-        cache_ttl=settings.cache_ttl,
-        rate_limit_seconds=settings.rate_limit_seconds,
+    app.state.settings = settings  # type: ignore[attr-defined]
+    app.state.track_client = ISSTrackClient(  # type: ignore[attr-defined]
+        tle_url=settings.tle_url,
         timeout=settings.request_timeout,
     )
-    app.state.crew_client = CrewClient(
+    app.state.crew_client = CrewClient(  # type: ignore[attr-defined]
         crew_url=settings.crew_url,
         cache_ttl=settings.crew_cache_ttl,
-        timeout=settings.request_timeout,
-    )
-    app.state.track_client = ISSTrackClient(
-        tle_url=settings.tle_url,
         timeout=settings.request_timeout,
     )
 
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
-    iss_client: ISSClient | None = getattr(app.state, "iss_client", None)
-    if iss_client:
-        await iss_client.aclose()
     crew_client: CrewClient | None = getattr(app.state, "crew_client", None)
     if crew_client:
         await crew_client.aclose()
@@ -101,23 +79,29 @@ async def health() -> HealthResponse:
 
 @app.get("/iss/now", response_model=ISSNowResponse)
 async def iss_now(
-    response: Response, iss_client: Annotated[ISSClient, Depends(get_iss_client)]
+    response: Response, track_client: Annotated[ISSTrackClient, Depends(get_track_client)]
 ) -> ISSNowResponse | JSONResponse:
     try:
-        payload = await iss_client.fetch()
-    except UpstreamUnavailableError as exc:
+        lat, lon, alt, velocity = await track_client.get_position_now()
+    except TLEUnavailableError as exc:
         return JSONResponse(
             status_code=503,
             content={"error": str(exc)},
-            headers={
-                "Cache-Control": f"max-age={iss_client.cache_ttl}",
-                "Access-Control-Allow-Origin": "*",
-            },
+            headers={"Access-Control-Allow-Origin": "*"},
         )
 
-    response.headers["Cache-Control"] = f"max-age={iss_client.cache_ttl}"
+    ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    response.headers["Cache-Control"] = "max-age=5"
     response.headers["Access-Control-Allow-Origin"] = "*"
-    return payload
+    return ISSNowResponse(
+        lat=lat,
+        lon=lon,
+        altitude_km=alt,
+        velocity_kmh=velocity,
+        timestamp=ts,
+        source="tle/sgp4",
+        stale=False,
+    )
 
 
 @app.get("/iss/history", response_model=ISSTrackResponse)

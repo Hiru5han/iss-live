@@ -38,6 +38,19 @@ class ISSTrackClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    async def get_position_now(self) -> tuple[float, float, float, float]:
+        """Return (lat_deg, lon_deg, alt_km, velocity_kmh) for the current moment."""
+        line1, line2 = await self._get_tle()
+        sat = Satrec.twoline2rv(line1, line2)
+        now = datetime.now(UTC)
+        jd_day, jd_fr = _jday_from_datetime(now)
+        error_code, r, v = sat.sgp4(jd_day, jd_fr)
+        if error_code != 0:
+            raise TLEUnavailableError(f"SGP4 propagation error {error_code}")
+        lat, lon, alt = _teme_to_geodetic(r, jd_day + jd_fr)
+        velocity_kmh = math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2) * 3600.0
+        return round(lat, 4), round(lon, 4), round(alt, 2), round(velocity_kmh, 2)
+
     async def get_track(self, hours: float) -> list[ISSTrackPoint]:
         """Return positions sampled every minute for the past *hours* hours."""
         line1, line2 = await self._get_tle()

@@ -33,10 +33,9 @@ export class IssLiveStack extends Stack {
       timeout: Duration.seconds(10),
       memorySize: 512,
       environment: {
-        CACHE_TTL: '8',
-        UPSTREAM_URL: 'https://api.wheretheiss.at/v1/satellites/25544',
         CREW_URL: 'http://api.open-notify.org/astros.json',
         CREW_CACHE_TTL: '300',
+        TLE_URL: 'https://celestrak.org/satcat/tle.php?CATNR=25544',
       }
     });
 
@@ -52,9 +51,11 @@ export class IssLiveStack extends Stack {
     const iss = api.root.addResource('iss');
     const now = iss.addResource('now');
     const crew = iss.addResource('crew');
+    const history = iss.addResource('history');
 
     now.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
     crew.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
+    history.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
 
     // ── Frontend (S3 + CloudFront) ──────────────────────────────────
 
