@@ -35,7 +35,7 @@ export class IssLiveStack extends Stack {
       environment: {
         CREW_URL: 'http://api.open-notify.org/astros.json',
         CREW_CACHE_TTL: '300',
-        TLE_URL: 'https://celestrak.org/satcat/tle.php?CATNR=25544',
+        TLE_URL: 'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE',
       }
     });
 
