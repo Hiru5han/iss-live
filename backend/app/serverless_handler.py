@@ -12,19 +12,20 @@ from .iss_client import ISSClient, UpstreamUnavailableError
 from .iss_track_client import ISSTrackClient, TLEUnavailableError
 
 settings = Settings()
+track_client = ISSTrackClient(
+    tle_url=settings.tle_url,
+    timeout=settings.request_timeout,
+)
 iss_client = ISSClient(
     upstream_url=settings.upstream_url,
     cache_ttl=settings.cache_ttl,
     rate_limit_seconds=settings.rate_limit_seconds,
     timeout=settings.request_timeout,
+    track_client=track_client,
 )
 crew_client = CrewClient(
     crew_url=settings.crew_url,
     cache_ttl=settings.crew_cache_ttl,
-    timeout=settings.request_timeout,
-)
-track_client = ISSTrackClient(
-    tle_url=settings.tle_url,
     timeout=settings.request_timeout,
 )
 

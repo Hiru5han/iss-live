@@ -6,11 +6,14 @@ import asyncio
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from .models import ISSNowResponse
+
+if TYPE_CHECKING:
+    from .iss_track_client import ISSTrackClient
 
 
 class UpstreamUnavailableError(Exception):
@@ -35,6 +38,7 @@ class ISSClient:
         timeout: float,
         source: str = "wheretheiss.at",
         transport: httpx.BaseTransport | None = None,
+        track_client: ISSTrackClient | None = None,
     ) -> None:
         self.upstream_url = upstream_url
         self.cache_ttl = cache_ttl
@@ -45,6 +49,7 @@ class ISSClient:
         self._cache: CacheEntry | None = None
         self._next_allowed_fetch = 0.0
         self._client = httpx.AsyncClient(timeout=self.timeout, transport=transport)
+        self._track_client = track_client
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -66,12 +71,30 @@ class ISSClient:
                     cached_payload = cached.payload.model_copy(deep=True)
                     cached_payload.stale = True
                     return cached_payload
+                if self._track_client is not None:
+                    try:
+                        return await self._fetch_via_tle()
+                    except Exception:  # noqa: S110
+                        pass
                 raise UpstreamUnavailableError("Upstream ISS provider unavailable") from exc
 
             result = self._normalize_payload(payload)
             self._cache = CacheEntry(payload=result, stored_at=now)
             self._next_allowed_fetch = now + self.rate_limit_seconds
             return result
+
+    async def _fetch_via_tle(self) -> ISSNowResponse:
+        lat, lon, alt, velocity = await self._track_client.get_position_now()  # type: ignore[union-attr]
+        ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        return ISSNowResponse(
+            lat=lat,
+            lon=lon,
+            altitude_km=alt,
+            velocity_kmh=velocity,
+            timestamp=ts,
+            source="tle/sgp4",
+            stale=False,
+        )
 
     async def _fetch_upstream(self) -> dict[str, Any]:
         response = await self._client.get(self.upstream_url)

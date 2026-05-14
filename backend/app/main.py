@@ -64,19 +64,21 @@ def get_iss_client(settings: Annotated[Settings, Depends(get_settings)]) -> ISSC
 async def startup_event() -> None:
     settings = Settings()
     app.state.settings = settings
+    track_client = ISSTrackClient(
+        tle_url=settings.tle_url,
+        timeout=settings.request_timeout,
+    )
+    app.state.track_client = track_client
     app.state.iss_client = ISSClient(
         upstream_url=settings.upstream_url,
         cache_ttl=settings.cache_ttl,
         rate_limit_seconds=settings.rate_limit_seconds,
         timeout=settings.request_timeout,
+        track_client=track_client,
     )
     app.state.crew_client = CrewClient(
         crew_url=settings.crew_url,
         cache_ttl=settings.crew_cache_ttl,
-        timeout=settings.request_timeout,
-    )
-    app.state.track_client = ISSTrackClient(
-        tle_url=settings.tle_url,
         timeout=settings.request_timeout,
     )
 

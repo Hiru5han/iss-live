@@ -52,9 +52,11 @@ export class IssLiveStack extends Stack {
     const iss = api.root.addResource('iss');
     const now = iss.addResource('now');
     const crew = iss.addResource('crew');
+    const history = iss.addResource('history');
 
     now.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
     crew.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
+    history.addMethod('GET', new LambdaIntegration(issNowFunction, { proxy: true }));
 
     // ── Frontend (S3 + CloudFront) ──────────────────────────────────
 
